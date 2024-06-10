@@ -17,6 +17,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("LayerMask")]
     [SerializeField] private LayerMask objectLayer;
+    [SerializeField] private LayerMask groundLayer;
 
     [Header("Animation")]
     Animator anim;
