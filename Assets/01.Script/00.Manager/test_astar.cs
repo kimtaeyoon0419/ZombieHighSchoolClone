@@ -1,54 +1,47 @@
-// # System
 using System.Collections;
 using System.Collections.Generic;
-
-// # Unity
 using UnityEngine;
 
-//[System.Serializable]
-//public class Node
-//{
-//    public bool isWall;           // 해당 노드가 벽인지 여부
-//    public Node parentNode;       // 경로를 추적하기 위한 부모 노드
-//    public int x, y;              // 그리드 내 노드의 좌표
-//    public int gCost, hCost;      // gCost: 시작 노드로부터의 거리, hCost: 목표 노드까지의 휴리스틱 거리
-//    public int fCost { get { return gCost + hCost; } } // fCost: gCost와 hCost의 합계
-
-//    // 생성자: 노드를 초기화합니다.
-//    public Node(bool _isWall, int _x, int _y)
-//    {
-//        isWall = _isWall; // 벽인지 여부 설정
-//        x = _x; // x 좌표 설정
-//        y = _y; // y 좌표 설정
-//    }
-//}
-
-public class GridManager : MonoBehaviour
+//Node 클래스는 그리드의 각 셀을 나타냅니다.
+[System.Serializable]
+public class Node
 {
-    public static GridManager instance;
+    public bool isWall;           // 해당 노드가 벽인지 여부
+    public Node parentNode;       // 경로를 추적하기 위한 부모 노드
+    public int x, y;              // 그리드 내 노드의 좌표
+    public int gCost, hCost;      // gCost: 시작 노드로부터의 거리, hCost: 목표 노드까지의 휴리스틱 거리
+    public int fCost { get { return gCost + hCost; } } // fCost: gCost와 hCost의 합계
 
+    // 생성자: 노드를 초기화합니다.
+    public Node(bool _isWall, int _x, int _y)
+    {
+        isWall = _isWall; // 벽인지 여부 설정
+        x = _x; // x 좌표 설정
+        y = _y; // y 좌표 설정
+    }
+}
+
+public class test_astar : MonoBehaviour
+{
     public Vector2Int bottomLeft, topRight; // 그리드의 좌하단 및 우상단 좌표
     public Transform player; // 플레이어의 Transform
+    public Transform zombie; // 좀비의 Transform
     public float pathUpdateDelay = 1f; // 경로를 재계산하는 주기
 
     private Node[,] grid; // 그리드의 노드 배열
     private List<Node> path; // 계산된 경로
     private int sizeX, sizeY; // 그리드의 가로 및 세로 크기
     private bool isPathFinding = false; // 경로 탐색 중 여부
+    public LayerMask houseLayer;
 
-    private void Awake()
+    // 게임 시작 시 호출되는 함수
+    void Start()
     {
-        if(instance == null)
-        {
-            instance = this;
-        }
+        InitializeGrid(); // 그리드를 초기화합니다.
+        StartCoroutine(UpdatePath()); // 경로를 주기적으로 업데이트합니다.
     }
 
-    private void Start()
-    {
-        InitializeGrid();
-    }
-
+    // 그리드를 초기화하는 함수
     void InitializeGrid()
     {
         // 그리드의 크기를 계산합니다.
@@ -62,9 +55,24 @@ public class GridManager : MonoBehaviour
             for (int y = 0; y < sizeY; y++)
             {
                 // 해당 좌표에 벽이 있는지 확인합니다.
-                bool isWall = Physics2D.OverlapCircle(new Vector2(x + bottomLeft.x, y + bottomLeft.y), 0.49f, LayerMask.GetMask("House")) != null;
+                bool isWall = Physics2D.OverlapCircle(new Vector2(x + bottomLeft.x, y + bottomLeft.y), 0.49f, houseLayer) != null;
                 grid[x, y] = new Node(isWall, x + bottomLeft.x, y + bottomLeft.y); // 노드를 초기화합니다.
             }
+        }
+    }
+
+    // 경로를 주기적으로 업데이트하는 코루틴
+    IEnumerator UpdatePath()
+    {
+        while (true)
+        {
+            if (!isPathFinding) // 경로 탐색 중이 아니면
+            {
+                FindPath(zombie.position, player.position); // 좀비와 플레이어의 위치로부터 경로를 찾습니다.
+                if (path != null && path.Count > 0)
+                    StartCoroutine(FollowPath()); // 계산된 경로를 따라 이동합니다.
+            }
+            yield return new WaitForSeconds(pathUpdateDelay); // 일정 시간 기다립니다.
         }
     }
 
@@ -177,5 +185,48 @@ public class GridManager : MonoBehaviour
         int distX = Mathf.Abs(nodeA.x - nodeB.x); // x 좌표 간의 거리
         int distY = Mathf.Abs(nodeA.y - nodeB.y); // y 좌표 간의 거리
         return distX + distY; // 두 거리의 합을 반환합니다.
+    }
+
+    // 경로를 따라 이동하는 코루틴
+    IEnumerator FollowPath()
+    {
+        isPathFinding = true; // 경로 탐색 중으로 설정합니다.
+        foreach (Node node in path) // 경로의 각 노드에 대해
+        {
+            Vector3 targetPosition = new Vector3(node.x, node.y, 0); // 목표 위치를 설정합니다.
+            while (Vector3.Distance(zombie.position, targetPosition) > 0.1f) // 좀비가 목표 위치에 도달할 때까지
+            {
+                zombie.position = Vector3.MoveTowards(zombie.position, targetPosition, 5f * Time.deltaTime); // 좀비를 목표 위치로 이동시킵니다.
+                yield return null; // 다음 프레임까지 기다립니다.
+            }
+        }
+        isPathFinding = false; // 경로 탐색이 완료되었음을 설정합니다.
+    }
+
+    // Gizmos를 사용하여 그리드와 경로를 시각적으로 표시하는 함수
+    void OnDrawGizmos()
+    {
+        if (grid != null) // 그리드가 초기화되었으면
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawSphere(new Vector2(grid[0, 0].x, grid[0, 0].y), 0.4f);
+        }
+        if (grid != null) // 그리드가 초기화되었으면
+        {
+            foreach (Node n in grid) // 그리드의 각 노드에 대해
+            {
+                Gizmos.color = (n.isWall) ? Color.black : Color.white; // 벽이면 검은색, 아니면 흰색으로 설정합니다.
+                Gizmos.DrawCube(new Vector3(n.x, n.y, 0), Vector3.one * 0.9f); // 해당 위치에 큐브를 그립니다.
+            }
+        }
+
+        if (path != null) // 경로가 계산되었으면
+        {
+            foreach (Node n in path) // 경로의 각 노드에 대해
+            {
+                Gizmos.color = Color.red; // 빨간색으로 설정합니다.
+                Gizmos.DrawCube(new Vector3(n.x, n.y, 0), Vector3.one * 0.9f); // 해당 위치에 큐브를 그립니다.
+            }
+        }
     }
 }

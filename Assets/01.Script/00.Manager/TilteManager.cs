@@ -44,6 +44,12 @@ public class TilteManager : MonoBehaviour
         SceneManager.LoadScene(SceneName);
     }
 
+    public void SelectNo()
+    {
+        idCheckPanel.SetActive(false);
+        loginPanel.SetActive(true);
+    }
+
     public void MoreThink()
     {
         idCheckPanel.SetActive(false);
