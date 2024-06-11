@@ -26,6 +26,7 @@ public class PlayerController : MonoBehaviour
     private readonly int hashLeft = Animator.StringToHash("Left");
     private readonly int hashRight = Animator.StringToHash("Right");
 
+
     private void Awake()
     {
         anim = GetComponent<Animator>();
